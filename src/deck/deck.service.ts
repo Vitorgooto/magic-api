@@ -25,4 +25,8 @@ export class DeckService {
   async findAllByUser(userId: string): Promise<Deck[]> {
     return this.deckModel.find({ owner: userId }).exec();
   }
+
+  async findDeckById(deckId: string): Promise<Deck> {
+    return this.deckModel.findById(deckId).exec();
+  }
 }

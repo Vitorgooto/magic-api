@@ -1,19 +1,15 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { DeckModule } from './deck/deck.module';
-import { UserModule } from './user/user.module';
-import { AppService } from './app.service';
+import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost/magic-api'), // Conexão com MongoDB
-    AuthModule, // Módulo de autenticação
-    DeckModule, // Módulo de decks
-    UserModule, // Módulo de usuários
+    AuthModule,
+    DeckModule,
+    MongooseModule.forRoot('mongodb://localhost:27017/magic'),  // Conexão com MongoDB
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}

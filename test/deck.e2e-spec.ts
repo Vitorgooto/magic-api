@@ -28,4 +28,13 @@ describe('DeckController (e2e)', () => {
       .expect(200)
       .expect([]);
   });
+
+  // Teste para a nova rota que retorna um deck específico
+  it('/deck/:id (GET)', () => {
+    const deckId = 'mockedDeckId';  // Substituir com um ID válido de mock
+    return request(app.getHttpServer())
+      .get(`/deck/${deckId}`)
+      .expect(200)
+      .expect({ /* resposta esperada */ });
+  });
 });
