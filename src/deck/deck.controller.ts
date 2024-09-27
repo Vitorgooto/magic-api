@@ -1,30 +1,64 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request, SetMetadata } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { DeckService } from './deck.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Deck } from './deck.schema';
+import { createDeckDto } from './dto/create-deck.dto';
+import { updateDeckDto } from './dto/update-deck.dto';
+import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/role.guard';
 
 
 @Controller('deck')
 export class DeckController {
-  constructor(private readonly deckService: DeckService) {}
+    
+    constructor(private deckService: DeckService) {}
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @SetMetadata('roles', ['admin'])  // Apenas 'admin' pode acessar
-  @Post()
-  async createDeck(@Request() req, @Body() body: any) {
-    const { commander, colors } = body;
-    return this.deckService.createDeck(req.user.userId, commander, colors);
-  }
+    @Get('commander')
+    async getCommander(@Query('name') name: string): Promise<any> {
+        if (!name) {
+            throw new Error('Missing "name" query parameter');
+        }
+        return this.deckService.fetchCommander(name);
+    }
+  
+    @Post('newDeckWithCommander')
+    @UseGuards(AuthGuard())
+    async createDeckWithCommander(
+        @Query('commanderName') commanderName: string,
+        @Query('deckName') deckName: string,
+    ): Promise<Deck> {
+        return this.deckService.createDeckWithCommander(commanderName, deckName);
+    }
 
-  @UseGuards(JwtAuthGuard)
-  @Get()
-  async getUserDecks(@Request() req) {
-    return this.deckService.findAllByUser(req.user.userId);
-  }
+    @Get('allDecks')
+    @Roles(Role.ADMIN)
+    @UseGuards(AuthGuard(), RolesGuard)
+    async getAllDecks(): Promise<Deck[]> {
+        return this.deckService.findAll();
+    }
 
-  @UseGuards(JwtAuthGuard)
-  @Get(':id')
-  async getDeckById(@Param('id') deckId: string) {
-    return this.deckService.findDeckById(deckId);
-  }
+    @Post('newDeckManual')
+    @UseGuards(AuthGuard())
+    async createDeck(@Body() deck: createDeckDto): Promise<Deck> {
+        return this.deckService.create(deck);
+    }
+
+    @Get(':id')
+    async getById(@Param('id') id: string): Promise<Deck> {
+        return this.deckService.findById(id);
+    }
+
+    @Put('/updateDeck/:id')
+    @UseGuards(AuthGuard())
+    async updateDeck(
+        @Param('id') id: string,
+        @Body() deck: updateDeckDto,
+    ): Promise<Deck> {
+        return this.deckService.updateById(id, deck);
+    }
+
+    @Delete('/deleteDeck/:id')
+    @UseGuards(AuthGuard())
+    async deleteById(@Param('id') id: string): Promise<Deck> {
+        return this.deckService.deleteById(id);
+    }
 }

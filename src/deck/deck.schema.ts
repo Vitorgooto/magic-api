@@ -1,19 +1,28 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 
-@Schema()
-export class Deck extends Document {
-  @Prop({ required: true })
-  owner: string;
+export enum Colors {
+  WHITE = 'W',
+  BLUE = 'U',
+  BLACK = 'B',
+  RED = 'R',
+  GREEN = 'G', 
+}
 
-  @Prop({ required: true })
-  commander: string;
+@Schema({
+    timestamps: true
+})
+export class Deck {
+   @Prop()
+   name: string;
 
-  @Prop({ type: [String], required: true })
-  cards: string[];
+   @Prop()
+   commanderName: string;
 
-  @Prop({ required: true })
-  colors: string[];
+   @Prop()
+   cards: string[];
+
+   @Prop()
+   colors: string[];
 }
 
 export const DeckSchema = SchemaFactory.createForClass(Deck);
