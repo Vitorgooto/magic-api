@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { DeckService } from './deck.service';
 import { Deck as DeckSchema } from './deck.schema';
 import { createDeckDto } from './dto/create-deck.dto';
 import { updateDeckDto } from './dto/update-deck.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/role.guard';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 class Card {
     constructor(public name: string, public type: string, public manaCost: string) {}
@@ -70,8 +71,9 @@ export class DecksController {
     }
 
     @Get('listDecks')
+    @UseInterceptors(CacheInterceptor) // Interceptor de cache aplicado à rota
     listDecks(): string[] {
-        return this.deckService.listDecks();
+      return this.deckService.listDecks();
     }
 
     @Post(':deckName/cards')
