@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards, UseInterceptors, Request } from '@nestjs/common';
 import { DeckService } from './deck.service';
 import { Deck as DeckSchema } from './deck.schema';
 import { createDeckDto } from './dto/create-deck.dto';
@@ -21,6 +21,13 @@ export class DecksController {
             throw new Error('Missing "name" query parameter');
         }
         return this.deckService.fetchCommander(name);
+    }
+
+    @Get('my-decks')
+    @UseGuards(AuthGuard('jwt'))
+    async getMyDecks(@Request() req): Promise<any> {
+        const userId = req.user.id;
+        return this.deckService.findDecksByUser(userId);
     }
 
     @Post('newDeckWithCommander')
