@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Deck as DeckSchema } from './deck.schema';
 import * as mongoose from 'mongoose';
 import { createDeckDto } from './dto/create-deck.dto';
+import { Model } from 'mongoose';
 import { Schema } from 'inspector/promises';
 
 class Card {
@@ -25,6 +26,10 @@ export class DeckService {
     @InjectModel(DeckSchema.name)
     private deckModel: mongoose.Model<DeckSchema>
   ) {}
+
+  async findDecksByUser(userId: string): Promise<DeckSchema[]> {
+    return this.deckModel.find({ owner: userId }).exec();
+  }
 
   // Create a new deck
   createDeck(name: string): string {
