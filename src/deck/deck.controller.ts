@@ -81,4 +81,11 @@ export class DecksController {
         const card = new Card(cardData.name, cardData.type, cardData.manaCost);
         return this.deckService.addCardToDeck(deckName, card);
     }
+
+    @Post('importDeck')
+    @UseGuards(AuthGuard()) // Use o guard de autenticação se necessário
+    async importDeck(@Body() deckData: createDeckDto): Promise<any> {
+        return this.deckService.importDeck(deckData);
+    }
 }
+
