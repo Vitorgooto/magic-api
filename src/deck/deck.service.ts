@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Deck as DeckSchema } from './deck.schema';
 import * as mongoose from 'mongoose';
+import { createDeckDto } from './dto/create-deck.dto';
+import { Schema } from 'inspector/promises';
 
 class Card {
   constructor(public name: string, public type: string, public manaCost: string) {}
@@ -156,4 +158,21 @@ export class DeckService {
     }
     return deletedDeck;
   }
+
+    // Importar um deck a partir de um DTO
+  async importDeck(deckData: createDeckDto): Promise<DeckSchema> {
+    const commander = await this.fetchCommander(deckData.commanderName);
+    if (!commander) {
+      throw new NotFoundException(`Commander '${deckData.commanderName}' not found.`);
+    }
+
+    // Validar se as cores do deck estão corretas para o commander
+    const commanderColors = commander.colors || [];
+    const isValidColors = deckData.colors.every(color => commanderColors.includes(color));
+    if (!isValidColors) {
+      throw new BadRequestException(`Invalid colors provided for commander '${deckData.commanderName}'.`);
+    }
+  }
+
+
 }
