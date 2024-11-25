@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { DeckModule } from './deck/deck.module';
-import { DecksModule } from './decks/decks.module';
+import { DecksModule } from './deck/deck.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CacheModule } from '@nestjs/cache-manager';
 
@@ -9,11 +9,11 @@ import { CacheModule } from '@nestjs/cache-manager';
   imports: [
     AuthModule,
     DeckModule,
-    DecksModule,  // Import the DecksModule
-    MongooseModule.forRoot('mongodb://localhost:27017/magic'),  // Connection to MongoDB
+    DecksModule,  
+    MongooseModule.forRoot('mongodb://localhost:27017/magic'), 
     CacheModule.register({
-      ttl: 300, // Tempo de vida do cache em segundos (aqui, 5 minutos)
-      max: 100, // Máximo de itens no cache
+      ttl: 300, 
+      max: 100, 
     }),
   ],
   controllers: [],

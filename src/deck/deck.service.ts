@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Deck as DeckSchema } from './deck.schema';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import * as mongoose from 'mongoose';
-import { createDeckDto } from './dto/create-deck.dto';
 import { Model } from 'mongoose';
-import { Schema } from 'inspector/promises';
+import { createDeckDto } from './dto/create-deck.dto';
+import { Deck as DeckSchema } from './deck.schema';
 
 class Card {
   constructor(public name: string, public type: string, public manaCost: string) {}
@@ -24,14 +25,15 @@ export class DeckService {
 
   constructor(
     @InjectModel(DeckSchema.name)
-    private deckModel: mongoose.Model<DeckSchema>
+    private readonly deckModel: mongoose.Model<DeckSchema>,
+    @InjectQueue('deck-import') private readonly deckQueue: Queue,
   ) {}
 
   async findDecksByUser(userId: string): Promise<DeckSchema[]> {
     return this.deckModel.find({ owner: userId }).exec();
   }
 
-  // Create a new deck
+
   createDeck(name: string): string {
     if (!this.decks[name]) {
       this.decks[name] = new Deck(name);
@@ -41,17 +43,15 @@ export class DeckService {
     }
   }
 
-  // Get a specific deck
+
   getDeck(name: string): Deck | undefined {
     return this.decks[name];
   }
 
-  // List all decks
   listDecks(): string[] {
     return Object.keys(this.decks);
   }
 
-  // Add a card to a deck
   addCardToDeck(deckName: string, card: Card): string {
     const deck = this.getDeck(deckName);
     if (deck) {
@@ -62,7 +62,32 @@ export class DeckService {
     }
   }
 
-  // Fetch commander from Scryfall API
+ 
+  async importDeck(deckData: createDeckDto): Promise<DeckSchema> {
+    const commander = await this.fetchCommander(deckData.commanderName);
+    if (!commander) {
+      throw new NotFoundException(`Commander '${deckData.commanderName}' not found.`);
+    }
+
+ 
+    const commanderColors = commander.colors || [];
+    const isValidColors = deckData.colors.every(color => commanderColors.includes(color));
+    if (!isValidColors) {
+      throw new BadRequestException(`Invalid colors provided for commander '${deckData.commanderName}'.`);
+    }
+
+  
+    await this.deckQueue.add('import', deckData);
+    return { message: 'Deck import initiated', deckId: deckData.deckId } as any;
+  }
+
+
+  async updateDeck(deckData: any) {
+    await this.deckQueue.add('update', deckData);
+    return { message: 'Deck update sent', deckId: deckData.deckId };
+  }
+
+
   async fetchCommander(commanderName: string): Promise<any> {
     const url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(commanderName)}`;
     console.log(`Fetching commander from URL: ${url}`);
@@ -80,7 +105,7 @@ export class DeckService {
     }
   }
 
-  // Fetch cards by colors from Scryfall API
+
   async fetchCardsByColors(colors: string[]): Promise<string[]> {
     const colorQuery = colors.join(',');
     const response = await fetch(`https://api.scryfall.com/cards/search?q=color%3D${colorQuery}&unique=cards&order=random`);
@@ -105,7 +130,6 @@ export class DeckService {
     return cards;
   }
 
-  // Create a deck with a commander
   async createDeckWithCommander(commanderName: string, deckName: string): Promise<DeckSchema> {
     const commander = await this.fetchCommander(commanderName);
     if (!commander) {
@@ -113,28 +137,27 @@ export class DeckService {
     }
     const commanderColors = commander.colors || [];
     const cards = await this.fetchCardsByColors(commanderColors);
-    
+
     const deck = new this.deckModel({
       name: deckName,
       commanderName: commander.name,
       colors: commanderColors,
-      cards: cards
+      cards: cards,
     });
-    
+
     return deck.save();
   }
 
-  // Find all decks
+  
   async findAll(): Promise<DeckSchema[]> {
     return this.deckModel.find();
   }
 
-  // Create a deck entry in the database
+
   async create(deck: DeckSchema): Promise<DeckSchema> {
     return this.deckModel.create(deck);
   }
 
-  // Find a deck by ID
   async findById(id: string): Promise<DeckSchema> {
     const deck = await this.deckModel.findById(id);
     if (!deck) {
@@ -143,7 +166,7 @@ export class DeckService {
     return deck;
   }
 
-  // Update a deck by ID
+
   async updateById(id: string, deck: DeckSchema): Promise<DeckSchema> {
     const updatedDeck = await this.deckModel.findByIdAndUpdate(id, deck, {
       new: true,
@@ -155,7 +178,7 @@ export class DeckService {
     return updatedDeck;
   }
 
-  // Delete a deck by ID
+
   async deleteById(id: string): Promise<DeckSchema> {
     const deletedDeck = await this.deckModel.findByIdAndDelete(id);
     if (!deletedDeck) {
@@ -163,21 +186,4 @@ export class DeckService {
     }
     return deletedDeck;
   }
-
-    // Importar um deck a partir de um DTO
-  async importDeck(deckData: createDeckDto): Promise<DeckSchema> {
-    const commander = await this.fetchCommander(deckData.commanderName);
-    if (!commander) {
-      throw new NotFoundException(`Commander '${deckData.commanderName}' not found.`);
-    }
-
-    // Validar se as cores do deck estão corretas para o commander
-    const commanderColors = commander.colors || [];
-    const isValidColors = deckData.colors.every(color => commanderColors.includes(color));
-    if (!isValidColors) {
-      throw new BadRequestException(`Invalid colors provided for commander '${deckData.commanderName}'.`);
-    }
-  }
-
-
 }
