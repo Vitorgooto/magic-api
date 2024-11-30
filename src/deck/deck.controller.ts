@@ -6,6 +6,7 @@ import { updateDeckDto } from './dto/update-deck.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/auth/role.guard';
 import { CacheInterceptor } from '@nestjs/cache-manager';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 class Card {
     constructor(public name: string, public type: string, public manaCost: string) {}
@@ -13,7 +14,10 @@ class Card {
 
 @Controller('decks')
 export class DecksController {
-    constructor(private readonly deckService: DeckService) {}
+    constructor(
+        private readonly deckService: DeckService,
+        private readonly notificationsGateway: NotificationsGateway,
+    ) {}
 
     @Get('commander')
     async getCommander(@Query('name') name: string): Promise<any> {
@@ -71,14 +75,14 @@ export class DecksController {
         return this.deckService.deleteById(id);
     }
 
-    // Local deck management methods
+    
     @Post('createDeck')
     createDeck(@Body('name') name: string): string {
         return this.deckService.createDeck(name);
     }
 
     @Get('listDecks')
-    @UseInterceptors(CacheInterceptor) // Interceptor de cache aplicado à rota
+    @UseInterceptors(CacheInterceptor) 
     listDecks(): string[] {
       return this.deckService.listDecks();
     }
@@ -90,9 +94,10 @@ export class DecksController {
     }
 
     @Post('importDeck')
-    @UseGuards(AuthGuard()) // Use o guard de autenticação se necessário
+    @UseGuards(AuthGuard()) 
     async importDeck(@Body() deckData: createDeckDto): Promise<any> {
-        return this.deckService.importDeck(deckData);
+        const deck = await this.deckService.importDeck(deckData);
+        this.notificationsGateway.sendDeckImportStatus(deck.id, 'Import started');
+        return { message: 'Deck import initiated', deckId: deck.id };
     }
 }
-

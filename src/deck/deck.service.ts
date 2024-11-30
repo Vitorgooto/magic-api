@@ -6,6 +6,7 @@ import * as mongoose from 'mongoose';
 import { Model } from 'mongoose';
 import { createDeckDto } from './dto/create-deck.dto';
 import { Deck as DeckSchema } from './deck.schema';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 
 class Card {
   constructor(public name: string, public type: string, public manaCost: string) {}
@@ -27,12 +28,12 @@ export class DeckService {
     @InjectModel(DeckSchema.name)
     private readonly deckModel: mongoose.Model<DeckSchema>,
     @InjectQueue('deck-import') private readonly deckQueue: Queue,
+    private readonly amqpConnection: AmqpConnection,
   ) {}
 
   async findDecksByUser(userId: string): Promise<DeckSchema[]> {
     return this.deckModel.find({ owner: userId }).exec();
   }
-
 
   createDeck(name: string): string {
     if (!this.decks[name]) {
@@ -42,7 +43,6 @@ export class DeckService {
       return `Deck '${name}' already exists.`;
     }
   }
-
 
   getDeck(name: string): Deck | undefined {
     return this.decks[name];
@@ -62,31 +62,35 @@ export class DeckService {
     }
   }
 
- 
   async importDeck(deckData: createDeckDto): Promise<DeckSchema> {
     const commander = await this.fetchCommander(deckData.commanderName);
     if (!commander) {
       throw new NotFoundException(`Commander '${deckData.commanderName}' not found.`);
     }
 
- 
     const commanderColors = commander.colors || [];
     const isValidColors = deckData.colors.every(color => commanderColors.includes(color));
     if (!isValidColors) {
       throw new BadRequestException(`Invalid colors provided for commander '${deckData.commanderName}'.`);
     }
 
-  
-    await this.deckQueue.add('import', deckData);
-    return { message: 'Deck import initiated', deckId: deckData.deckId } as any;
-  }
+    const deck = new this.deckModel(deckData);
+    await deck.save();
 
+    const message = {
+      deckId: deck.id,
+      name: deck.name,
+      cards: deckData.cards,
+    };
+    await this.amqpConnection.publish('deck_exchange', 'deck_import_queue', message);
+
+    return deck;
+  }
 
   async updateDeck(deckData: any) {
     await this.deckQueue.add('update', deckData);
     return { message: 'Deck update sent', deckId: deckData.deckId };
   }
-
 
   async fetchCommander(commanderName: string): Promise<any> {
     const url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(commanderName)}`;
@@ -104,7 +108,6 @@ export class DeckService {
       throw new InternalServerErrorException('Failed to fetch commander', error);
     }
   }
-
 
   async fetchCardsByColors(colors: string[]): Promise<string[]> {
     const colorQuery = colors.join(',');
@@ -148,11 +151,9 @@ export class DeckService {
     return deck.save();
   }
 
-  
   async findAll(): Promise<DeckSchema[]> {
     return this.deckModel.find();
   }
-
 
   async create(deck: DeckSchema): Promise<DeckSchema> {
     return this.deckModel.create(deck);
@@ -166,7 +167,6 @@ export class DeckService {
     return deck;
   }
 
-
   async updateById(id: string, deck: DeckSchema): Promise<DeckSchema> {
     const updatedDeck = await this.deckModel.findByIdAndUpdate(id, deck, {
       new: true,
@@ -177,7 +177,6 @@ export class DeckService {
     }
     return updatedDeck;
   }
-
 
   async deleteById(id: string): Promise<DeckSchema> {
     const deletedDeck = await this.deckModel.findByIdAndDelete(id);
