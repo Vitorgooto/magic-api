@@ -32,7 +32,6 @@ export class DeckService {
     private readonly prometheusService: PrometheusService,
     private readonly amqpConnection: AmqpConnection,
   ) {
-    // Configura o contador Prometheus
     this.taskCounter = this.prometheusService.getCounter({
       name: 'task_priority_count',
       help: 'Count of tasks processed by priority level',
@@ -47,9 +46,9 @@ export class DeckService {
   createDeck(name: string): string {
     if (!this.decks[name]) {
       this.decks[name] = new Deck(name);
-      return `Deck '${name}' created successfully.`;
+      return Deck '${name}' created successfully.;
     } else {
-      return `Deck '${name}' already exists.`;
+      return Deck '${name}' already exists.;
     }
   }
 
@@ -65,25 +64,25 @@ export class DeckService {
     const deck = this.getDeck(deckName);
     if (deck) {
       deck.cards.push(card);
-      return `Card '${card.name}' added to deck '${deckName}'.`;
+      return Card '${card.name}' added to deck '${deckName}'.;
     } else {
-      return `Deck '${deckName}' not found.`;
+      return Deck '${deckName}' not found.;
     }
   }
 
   async importDeckWithPriority(deckData: createDeckDto, isAdmin: boolean): Promise<DeckSchema> {
-    const priority = isAdmin ? 1 : 5; // 1 = Alta prioridade, 5 = Baixa prioridade
-    this.taskCounter.inc({ priority: priority.toString() }); // Incrementa métrica Prometheus
+    const priority = isAdmin ? 1 : 5; 
+    this.taskCounter.inc({ priority: priority.toString() });
 
     const commander = await this.fetchCommander(deckData.commanderName);
     if (!commander) {
-      throw new NotFoundException(`Commander '${deckData.commanderName}' not found.`);
+      throw new NotFoundException(Commander '${deckData.commanderName}' not found.);
     }
 
     const commanderColors = commander.colors || [];
     const isValidColors = deckData.colors.every(color => commanderColors.includes(color));
     if (!isValidColors) {
-      throw new BadRequestException(`Invalid colors provided for commander '${deckData.commanderName}'.`);
+      throw new BadRequestException(Invalid colors provided for commander '${deckData.commanderName}'.);
     }
 
     const deck = new this.deckModel(deckData);
@@ -95,7 +94,7 @@ export class DeckService {
       cards: deckData.cards,
     };
 
-    // Adicionando à fila com prioridade
+
     await this.deckQueue.add('import', message, { priority });
 
     return deck;
@@ -107,8 +106,8 @@ export class DeckService {
   }
 
   async fetchCommander(commanderName: string): Promise<any> {
-    const url = `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(commanderName)}`;
-    console.log(`Fetching commander from URL: ${url}`);
+    const url = 'https://api.scryfall.com/cards/named?exact=${encodeURIComponent(commanderName)}';
+    console.log(Fetching commander from URL: ${url});
 
     try {
       const response = await fetch(url);
@@ -125,7 +124,7 @@ export class DeckService {
 
   async fetchCardsByColors(colors: string[]): Promise<string[]> {
     const colorQuery = colors.join(',');
-    const response = await fetch(`https://api.scryfall.com/cards/search?q=color%3D${colorQuery}&unique=cards&order=random`);
+    const response = await fetch('https://api.scryfall.com/cards/search?q=color%3D${colorQuery}&unique=cards&order=random');
     const data = await response.json();
 
     const cards: string[] = [];

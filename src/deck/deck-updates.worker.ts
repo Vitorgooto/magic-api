@@ -13,10 +13,9 @@ export class DeckImportWorker {
 
   @Process('import')
   async handleImport(job: Job<any>) {
-    console.log(`Processing task with priority: ${job.opts.priority}`); // Log de prioridade
     const deckData = job.data;
-
     try {
+      console.log(`Processing import with priority: ${job.opts.priority}`);
       const deck = await this.deckService.findById(deckData.deckId);
 
       await this.deckService.updateById(deckData.deckId, deckData);
@@ -26,9 +25,9 @@ export class DeckImportWorker {
         action: 'import_completed',
       });
 
-      console.log(`Successfully processed deck ${deckData.deckId} with priority ${job.opts.priority}`);
+      console.log(`Deck ${deckData.deckId} imported successfully`);
     } catch (error) {
-      console.error(`Error processing deck: ${error.message}`);
+      console.error(`Error processing deck import: ${error.message}`);
     }
   }
 }

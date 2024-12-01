@@ -1,16 +1,21 @@
 import { Module } from '@nestjs/common';
-import { DeckController } from './deck.controller';
-import { DeckService } from './deck.service';
-import { MongooseModule } from '@nestjs/mongoose';
-import { DeckSchema } from './deck.schema';
-import { AuthModule } from '../auth/auth.module';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { BullModule } from '@nestjs/bull';
+import { DeckService } from './deck/deck.service';
+import { DeckImportWorker } from './deck/deck-import.worker';
+import { DeckUpdatesWorker } from './deck/deck-updates.worker';
 
 @Module({
   imports: [
-    AuthModule,
-    MongooseModule.forFeature([{name: 'Deck', schema: DeckSchema}])
+    PrometheusModule.register(),
+    BullModule.forRoot({
+      redis: { host: 'localhost', port: 6379 },
+    }),
+    BullModule.registerQueue(
+      { name: 'deck-import', options: { redis: { host: 'localhost', port: 6379 } } },
+      { name: 'deck-updates', options: { redis: { host: 'localhost', port: 6379 } } },
+    ),
   ],
-  controllers: [DeckController],
-  providers: [DeckService],
+  providers: [DeckService, DeckImportWorker, DeckUpdatesWorker],
 })
-export class DeckModule {}
+export class AppModule {}
