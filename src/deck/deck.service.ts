@@ -7,6 +7,7 @@ import { Model } from 'mongoose';
 import { createDeckDto } from './dto/create-deck.dto';
 import { Deck as DeckSchema } from './deck.schema';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+import { PrometheusService } from '@willsoto/nestjs-prometheus';
 
 class Card {
   constructor(public name: string, public type: string, public manaCost: string) {}
@@ -22,14 +23,22 @@ class Deck {
 
 @Injectable()
 export class DeckService {
-  private decks: Record<string, Deck> = {};
+  private readonly taskCounter;
 
   constructor(
     @InjectModel(DeckSchema.name)
     private readonly deckModel: mongoose.Model<DeckSchema>,
     @InjectQueue('deck-import') private readonly deckQueue: Queue,
+    private readonly prometheusService: PrometheusService,
     private readonly amqpConnection: AmqpConnection,
-  ) {}
+  ) {
+    // Configura o contador Prometheus
+    this.taskCounter = this.prometheusService.getCounter({
+      name: 'task_priority_count',
+      help: 'Count of tasks processed by priority level',
+      labelNames: ['priority'],
+    });
+  }
 
   async findDecksByUser(userId: string): Promise<DeckSchema[]> {
     return this.deckModel.find({ owner: userId }).exec();
@@ -62,7 +71,10 @@ export class DeckService {
     }
   }
 
-  async importDeck(deckData: createDeckDto): Promise<DeckSchema> {
+  async importDeckWithPriority(deckData: createDeckDto, isAdmin: boolean): Promise<DeckSchema> {
+    const priority = isAdmin ? 1 : 5; // 1 = Alta prioridade, 5 = Baixa prioridade
+    this.taskCounter.inc({ priority: priority.toString() }); // Incrementa métrica Prometheus
+
     const commander = await this.fetchCommander(deckData.commanderName);
     if (!commander) {
       throw new NotFoundException(`Commander '${deckData.commanderName}' not found.`);
@@ -82,7 +94,9 @@ export class DeckService {
       name: deck.name,
       cards: deckData.cards,
     };
-    await this.amqpConnection.publish('deck_exchange', 'deck_import_queue', message);
+
+    // Adicionando à fila com prioridade
+    await this.deckQueue.add('import', message, { priority });
 
     return deck;
   }
@@ -133,56 +147,4 @@ export class DeckService {
     return cards;
   }
 
-  async createDeckWithCommander(commanderName: string, deckName: string): Promise<DeckSchema> {
-    const commander = await this.fetchCommander(commanderName);
-    if (!commander) {
-      throw new NotFoundException('Commander not found');
-    }
-    const commanderColors = commander.colors || [];
-    const cards = await this.fetchCardsByColors(commanderColors);
-
-    const deck = new this.deckModel({
-      name: deckName,
-      commanderName: commander.name,
-      colors: commanderColors,
-      cards: cards,
-    });
-
-    return deck.save();
-  }
-
-  async findAll(): Promise<DeckSchema[]> {
-    return this.deckModel.find();
-  }
-
-  async create(deck: DeckSchema): Promise<DeckSchema> {
-    return this.deckModel.create(deck);
-  }
-
-  async findById(id: string): Promise<DeckSchema> {
-    const deck = await this.deckModel.findById(id);
-    if (!deck) {
-      throw new NotFoundException('The deck was not found');
-    }
-    return deck;
-  }
-
-  async updateById(id: string, deck: DeckSchema): Promise<DeckSchema> {
-    const updatedDeck = await this.deckModel.findByIdAndUpdate(id, deck, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updatedDeck) {
-      throw new NotFoundException('The deck was not found for update');
-    }
-    return updatedDeck;
-  }
-
-  async deleteById(id: string): Promise<DeckSchema> {
-    const deletedDeck = await this.deckModel.findByIdAndDelete(id);
-    if (!deletedDeck) {
-      throw new NotFoundException('The deck was not found for deletion');
-    }
-    return deletedDeck;
-  }
-}
+  async createDeckWith
